@@ -12,7 +12,6 @@
 // @grant        GM_setValue
 // @grant        GM.getValue
 // @grant        GM.setValue
-// @require      https://sdk.amazonaws.com/js/aws-sdk-2.7.20.min.js
 // @require      https://nickkantack.github.io/KantackJsCommons/dist/KJSC.js
 // ==/UserScript==
 
@@ -58,41 +57,52 @@ visiting job posting pages it's difficult to make that judgment).
 
 */
 
-
-
-
-/*
-AWS.config.update({region: 'us-east-1'});
-AWS.config.credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: ''});
-const lambda = new AWS.Lambda({region: 'us-east-1', apiVersion: '2015-03-31'});
-
-let sessionId = "";
-
-async function callLambda() {
+function isServerRunning() {
     return new Promise((resolve, reject) => {
-        const payload = JSON.stringify({});
-        console.log(`The payload is ${payload}`);
-        lambda.invoke(
-            {
-                FunctionName : 'BedrockWebAssistant',
-                Payload: payload,
-                InvocationType : 'RequestResponse',
-                LogType : 'None'
-            }, function(err, data) {
-                    console.log(data);
-                    if (err) {
-                        console.error(`Got this error: ${err}`);
-                        reject(err);
-                    } else {
-                        const response = JSON.parse(data.Payload);
-                        resolve(response);
-                    }
-                });
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: `http://127.0.0.1:10152/kv/healthcheck`,
+            onload: r => {
+                if (r.status !== 200) {
+                    reject(r);
+                }
+                resolve(true);
+            },
+            onerror: () => resolve(false)
+        });
     });
 }
-*/
 
-const todaysReport = [];
+/* key should be a string. Ithis method will return an object or throw. */
+function kvGet(key) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: `http://127.0.0.1:10152/kv/${encodeURIComponent(key)}`,
+            onload: r => {
+                if (r.status !== 200) {
+                    reject(r);
+                }
+                resolve(JSON.parse(r.responseText))
+            },
+            onerror: reject
+        });
+    });
+}
+
+/* key should be a string. value should be an object. */
+function kvSet(key, value) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: "PUT",
+            url: `http://127.0.0.1:10152/kv/${encodeURIComponent(key)}`,
+            headers: { "Content-Type": "application/json" },
+            data: JSON.stringify(value),
+            onload: r => resolve(JSON.parse(r.responseText)),
+            onerror: reject
+        });
+    });
+}
 
 async function runHelperTab(url, method) {
 
@@ -162,7 +172,7 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
     if (!functionToGetJobUrlFromObject) {
         functionToGetJobUrlFromObject = (j) => {
             if (!j) {
-                console.warn(`Was asked to extract a job URL from a falsy job object ({j})`);
+                console.warn(`Was asked to extract a job URL from a falsy job object (${j})`);
             }
             return j;
         };
@@ -174,14 +184,25 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
 
 }
 
-(function() {
+(async function() {
     'use strict';
+
+    if (!isServerRunning()) {
+        console.warn("Job scraper server isn't running. No further work will be done.");
+        alert("Job scraper server isn't running. Stopping now.");
+        return;
+    }
+
+    await kvSet("test", {purpose: "test"});
+    console.log(await kvGet("test"));
+
+    return
 
     // Good to do this first to avoid race condition where this page might think it is a helper tab.
     checkHelperTab();
 
-    // TODO inside this if statement just add a button to the screen and the contents of this if statement
-    // become the contents of the click listener for that button.
+    // Use a specific domain for the control tab to help clarify control vs. helper
+    // roles for a tab that is running this script.
     if (/nickkantack\.github\.io/.test(window.location.href)) {
 
         const scrapeButton = document.createElement(`button`);
