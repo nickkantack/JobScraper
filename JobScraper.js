@@ -104,6 +104,32 @@ function kvSet(key, value) {
     });
 }
 
+function saveBlob(key, value) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: "PUT",
+            url: `http://127.0.0.1:10152/blob/${encodeURIComponent(key)}`,
+            headers: { "Content-Type": "application/json" },
+            data: JSON.stringify({text: value}),
+            onload: r => resolve(JSON.parse(r.responseText)),
+            onerror: reject
+        });
+    });
+}
+
+function hash(text) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: "PUT",
+            url: `http://127.0.0.1:10152/hash`,
+            headers: { "Content-Type": "application/json" },
+            data: JSON.stringify({text: text}),
+            onload: r => resolve(JSON.parse(r.responseText)["hash"]),
+            onerror: reject
+        });
+    });
+}
+
 async function runHelperTab(url, method) {
 
     const timeoutMs = 10000;
@@ -169,18 +195,22 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
     const jobObjects = await functionToGetJobObjects();
     if (jobObjects == undefined) return;
 
+    // Support a shorthand where NOT specifying functionToGetJobUrlFromObject means a common
+    // form is used where the object already has a url property
     if (!functionToGetJobUrlFromObject) {
         functionToGetJobUrlFromObject = (j) => {
-            if (!j) {
+            if (!j.url) {
                 console.warn(`Was asked to extract a job URL from a falsy job object (${j})`);
             }
-            return j;
+            return j.url;
         };
     }
 
-    // TODO in the future pass all the data to the local server instead of
-    // merely logging it
-    console.log(jobObjects);
+    for (let ob of jobObjects) {
+        const url = functionToGetJobUrlFromObject(ob);
+        const urlHash = await hash(url);
+        await kvSet(urlHash, ob);
+    }
 
 }
 
@@ -192,11 +222,6 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
         alert("Job scraper server isn't running. Stopping now.");
         return;
     }
-
-    await kvSet("test", {purpose: "test"});
-    console.log(await kvGet("test"));
-
-    return;
 
     // Good to do this first to avoid race condition where this page might think it is a helper tab.
     checkHelperTab();
@@ -219,7 +244,7 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
             }, (jobObject) => {
                 return `https://block.xyz/careers/jobs/${jobObject.id}`;
             });
-
+            /*
             await runBaseScraper(`CONFLUENT`, async() => {
                 // Confluent requires visiting the website.
                 let jobObjects = [];
@@ -332,6 +357,9 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
                     return [...document.querySelectorAll(`td`)].filter(x => /remote/i.test(x.innerHTML) && /USA/i.test(x.innerHTML)).map(x => x.closest("a").href);
                 });
             });
+            */
+
+            console.log(`Finished running scrapers`);
         });
     }
 

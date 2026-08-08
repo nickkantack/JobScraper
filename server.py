@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
-import uvicorn, json, os
+import uvicorn, json, os, hashlib
+
 
 app = FastAPI()
 FILE = "kv_store.json"
@@ -46,6 +47,22 @@ async def write(key: str, request: Request):
     print(db[key])
     save_db(db)
     return {"ok": True}
+
+
+@app.put("/blob/{key}")
+async def write(key: str, request: Request):
+    text = (await request.json())["text"]
+    hash = hashlib.sha256(key.encode()).hexdigest()
+    with open(f"blobs/{hash}.html", "w") as file:
+        file.write(text)
+    return {"hash": hash}
+
+
+@app.put("/hash")
+async def write(request: Request):
+    text = (await request.json())["text"]
+    hash = hashlib.sha256(text.encode()).hexdigest()
+    return {"hash": hash}
 
 
 @app.delete("/kv/{key}")
