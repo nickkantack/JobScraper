@@ -187,7 +187,7 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
 (async function() {
     'use strict';
 
-    if (!isServerRunning()) {
+    if (!await isServerRunning()) {
         console.warn("Job scraper server isn't running. No further work will be done.");
         alert("Job scraper server isn't running. Stopping now.");
         return;
@@ -196,7 +196,7 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
     await kvSet("test", {purpose: "test"});
     console.log(await kvGet("test"));
 
-    return
+    return;
 
     // Good to do this first to avoid race condition where this page might think it is a helper tab.
     checkHelperTab();
