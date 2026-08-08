@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         SoftwareJobScraper
+// @name         JobScraper
 // @namespace    http://tampermonkey.net/
 // @version      2025-02-16
 // @description  Scrape new postings from a few careers pages.
@@ -42,7 +42,22 @@ Page visit philosophy
 We will expect the "control tab" to remain alive constantly, and all page visits will
 be orchestrated by helper tabs which recognize themselves as such, perform their function,
 then self-close.
+
+---------------------------------------
+Guide to onboard new company
+---------------------------------------
+Typically, you only need to do two relatively simple things:
+1. Find a good URL that this scraper can use to reach a base page on which a company's
+   positions are listed, and
+2. Write a method that runs on that page and produces a list of link URLs to specific
+   job postings you are interested in.
+
+There is not a high bar for these two steps to filter out jobs you aren't interested in
+(e.g. designer jobs) because doing so at this stage is just hard (without actually
+visiting job posting pages it's difficult to make that judgment).
+
 */
+
 
 
 
@@ -139,7 +154,7 @@ async function checkHelperTab() {
 
 }
 
-async function runBaseScraper(functionToGetJobObjects, functionToGetJobUrlFromObject) {
+async function runBaseScraper(companyName, functionToGetJobObjects, functionToGetJobUrlFromObject) {
 
     const jobObjects = await functionToGetJobObjects();
     if (jobObjects == undefined) return;
@@ -175,7 +190,7 @@ async function runBaseScraper(functionToGetJobObjects, functionToGetJobUrlFromOb
         scrapeButton.addEventListener(`click`, async () => {
             console.log(`Running scrapers`);
 
-            await runBaseScraper(async () => {
+            await runBaseScraper(`BLOCK`, async () => {
                 // Block has an endpoint we can hit to get a JSON response, so we don't need to nagivate to the base page.
                 const unparsedJson = await KJSC.WebClient.loadUrlSync("https://block.xyz/api/careers/jobs?employeeTypes[]=Regular&isRemote=true&page=1&pageLimit=5000&teams[]=Machine%20Learning%2FData%20Science&teams[]=Software%20Engineering", { returnParsedHtml: false });
                 const parsedJson = JSON.parse(unparsedJson);
@@ -298,5 +313,5 @@ async function runBaseScraper(functionToGetJobObjects, functionToGetJobUrlFromOb
             });
         });
     }
-   
+
 })();
