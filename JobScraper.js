@@ -117,6 +117,18 @@ function saveBlob(key, value) {
     });
 }
 
+function hasBlob(key, value) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: `http://127.0.0.1:10152/blob/${encodeURIComponent(key)}`,
+            headers: { "Content-Type": "application/json" },
+            onload: r => resolve(JSON.parse(r.responseText)),
+            onerror: reject
+        });
+    });
+}
+
 function hash(text) {
     return new Promise((resolve, reject) => {
         GM_xmlhttpRequest({
@@ -124,7 +136,12 @@ function hash(text) {
             url: `http://127.0.0.1:10152/hash`,
             headers: { "Content-Type": "application/json" },
             data: JSON.stringify({text: text}),
-            onload: r => resolve(JSON.parse(r.responseText)["hash"]),
+            onload: r => {
+                if (r.status !== 200) {
+                    reject(r);
+                }
+                resolve(r.responseText.result);
+            },
             onerror: reject
         });
     });
@@ -211,11 +228,16 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
         // Attempt to scrape the html of the job posting
         let html = null;
         if (url) {
+            const urlHash = await hash(url);
+            const alreadyHasHtml = await hasBlob(urlHash);
+            if (alreadyHasHtml) {
+                console.log(`Skipping html since we already have it`);
+                continue;
+            }
             html = await runHelperTab(url, () => {
                 return document.documentElement.outerHTML;
             });
         }
-        const urlHash = await hash(url);
         // If we got html for the job posting, save it to the blob storage
         if (html) {
             await saveBlob(urlHash, html);

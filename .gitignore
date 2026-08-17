@@ -1,3 +1,4 @@
 job-env/
+job-venv/
 blobs/
 kv_store.json

@@ -41,6 +41,12 @@ def read(key: str):
     return db[key]
 
 
+@app.get("/blob/{key}")
+def read(key: str):
+    result = Path(f"blobs/{key}.html").exists()
+    return {"result": result}
+
+
 @app.put("/kv/{key}")
 async def write(key: str, request: Request):
     db = load_db()
