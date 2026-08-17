@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
 import uvicorn, json, os, hashlib
+from pathlib import Path
 
 
 app = FastAPI()
@@ -53,8 +54,11 @@ async def write(key: str, request: Request):
 async def write(key: str, request: Request):
     text = (await request.json())["text"]
     hash = hashlib.sha256(key.encode()).hexdigest()
-    with open(f"blobs/{hash}.html", "w") as file:
-        file.write(text)
+    # Only save the blob if we don't have it already. We're not too
+    # concerned about picking up updates to a job posting.
+    if not Path(f"blobs/{hash}.html").exists():
+        with open(f"blobs/{hash}.html", "w") as file:
+            file.write(text)
     return {"hash": hash}
 
 

@@ -208,7 +208,19 @@ async function runBaseScraper(companyName, functionToGetJobObjects, functionToGe
 
     for (let ob of jobObjects) {
         const url = functionToGetJobUrlFromObject(ob);
+        // Attempt to scrape the html of the job posting
+        let html = null;
+        if (url) {
+            html = await runHelperTab(url, () => {
+                return document.documentElement.outerHTML;
+            });
+        }
         const urlHash = await hash(url);
+        // If we got html for the job posting, save it to the blob storage
+        if (html) {
+            await saveBlob(urlHash, html);
+        }
+        // Save the job object to the kv_store
         await kvSet(urlHash, ob);
     }
 
